@@ -34,7 +34,7 @@ class MInterface(pl.LightningModule):
         self.load_projector()
         self.gradient_storage = {}
     
-    def forward(self, batch):
+    def forward(self, batch, gate_weights=None):
         targets = batch["tokens"].input_ids.masked_fill(
             batch["tokens"].input_ids == self.llama_tokenizer.pad_token_id, -100
         ) # [batch_size, max_len]
@@ -45,7 +45,8 @@ class MInterface(pl.LightningModule):
         input_embeds, user_embeds = self.wrap_emb(batch)
 
         if self.hparams.router == 'share':
-            gate_weights = self.router(user_embeds)
+            if gate_weights is None:
+                gate_weights = self.router(user_embeds)
             outputs = self.llama_model(
                 inputs_embeds=input_embeds,
                 attention_mask=batch["tokens"].attention_mask,
@@ -67,10 +68,11 @@ class MInterface(pl.LightningModule):
         )
         return outputs
 
-    def generate(self, batch,temperature=0.8,do_sample=False,num_beams=1,max_gen_length=64,min_gen_length=1,repetition_penalty=1.0,length_penalty=1.0, num_return_sequences=1):
+    def generate(self, batch,temperature=0.8,do_sample=False,num_beams=1,max_gen_length=64,min_gen_length=1,repetition_penalty=1.0,length_penalty=1.0, num_return_sequences=1, gate_weights=None):
         input_embeds, user_embeds = self.wrap_emb(batch)
         if self.hparams.router == 'share':
-            gate_weights = self.router(user_embeds)
+            if gate_weights is None:
+                gate_weights = self.router(user_embeds)
             generate_ids = self.llama_model.generate(
                 inputs_embeds=input_embeds,
                 attention_mask=batch["tokens"].attention_mask,
